@@ -42,7 +42,7 @@ def calculaEntropia(persistentBarcode):
     entropia=-np.sum(p*np.log(p))
     return round(entropia,4)
 
-def dibujaNubePuntosInstante(time,robotVision=None,ids=False):
+def dibujaNubePuntosInstante(time,robotVision=None,vision_radius=5,field_of_view=np.pi/2,ids=False):
     instante = ps[time]
     x=instante[:,0]
     y=instante[:,1]
@@ -56,9 +56,7 @@ def dibujaNubePuntosInstante(time,robotVision=None,ids=False):
         for i in range(len(x)):
             plt.text(x[i], y[i]+0.1, str(i), fontsize=7, ha='center', va='bottom')
     
-    if robotVision is not None:
-        vision_radius = 3 
-        field_of_view = np.pi / 2 #90 degrees vision angle 
+    if robotVision is not None: 
         xrobot=x[robotVision]
         yrobot=y[robotVision]
         orientation=angle[robotVision]
@@ -151,7 +149,6 @@ def dibujaEntropyTimeSerie(entropy):
 
 def dibujaEntropyTimeSerieInteractive(entropy):
     fig = go.Figure()
-
     fig.add_trace(
         go.Scatter(
             x=np.arange(0,100), 
@@ -160,7 +157,6 @@ def dibujaEntropyTimeSerieInteractive(entropy):
             marker=dict(size=8),
         )
     )
-
     fig.update_layout(
         autosize=False,
         width=800,
@@ -169,37 +165,40 @@ def dibujaEntropyTimeSerieInteractive(entropy):
         yaxis_title='Entropy',
         title=f'Topological entropy time series of persistent diagram'
     )
-
     fig.show()
 
-def calcula_robots_en_campo_vision(time, robot):
+def calcula_robots_en_campo_vision(time, robot,vision_radius=5,field_of_view=np.pi/2,printing=False):
     robots_en_campo = []
-    vision_radius = 3
-    field_of_view = np.pi / 2
     instante = ps[time]
     x=instante[:,0]
     y=instante[:,1]
     angle=instante[:,2]
-    # Obtener la posición del robot que queremo y su orientación
     xObjetivo = x[robot]
     yObjetivo = y[robot]
     angleObjetivo = angle[robot]
-    # Calcular los límites del campo de visión del primer robot
     angulo_inicio = angleObjetivo - field_of_view / 2
     angulo_fin = angleObjetivo + field_of_view / 2
-    # Iterar sobre cada robot
-    for i in range(0, len(x)):  # Empezar desde el segundo robot
+    for i in range(len(x)):
         if i == robot:
             continue
-        robot_x, robot_y = x[i],y[i]
-        # Calcular la distancia entre el primer robot y el robot actual
-        distancia = np.sqrt((robot_x - xObjetivo)**2 + (robot_y - yObjetivo)**2)
-        # Calcular el ángulo entre la orientación del primer robot y la posición del robot actual
+        
+        robot_x, robot_y = x[i], y[i]
+        distancia = calcular_distancia(xObjetivo,yObjetivo,robot_x,robot_y)
+        if distancia > vision_radius:
+            continue
+        
         angulo_robot = np.arctan2(robot_y - yObjetivo, robot_x - xObjetivo)
-        # Verificar si el robot está dentro del campo de visión del primer robot
-        if distancia <= vision_radius and angulo_robot >= angulo_inicio and angulo_robot <= angulo_fin:
-            robots_en_campo.append(i)
-    print(f"Robots in the robot's {robot} field of vision:", robots_en_campo)
+        angulo_relativo = (angulo_robot - angleObjetivo + 2 * np.pi) % (2 * np.pi)
+        angulo_inicio_relativo = (angulo_inicio - angleObjetivo + 2 * np.pi) % (2 * np.pi)
+        angulo_fin_relativo = (angulo_fin - angleObjetivo + 2 * np.pi) % (2 * np.pi)
+        if angulo_inicio_relativo < angulo_fin_relativo:
+            if angulo_inicio_relativo <= angulo_relativo <= angulo_fin_relativo:
+                robots_en_campo.append(i)
+        else:  # Case when field vision cross 0 radians
+            if angulo_relativo >= angulo_inicio_relativo or angulo_relativo <= angulo_fin_relativo:
+                robots_en_campo.append(i)
+    if printing is True:
+        print(f"Time {time}. Robots in the robot's {robot} field of vision:", robots_en_campo)
     return robots_en_campo
 
 def calcular_distancia(x1, y1, x2, y2):

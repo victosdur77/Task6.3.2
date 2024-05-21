@@ -43,7 +43,8 @@ def calculaEntropia(persistentBarcode):
     return round(entropia,4)
 
 def relative_entropy(persistentBarcode):
-    return calculaEntropia(persistentBarcode) / len(persistentBarcode)
+    entropia=calculaEntropia(persistentBarcode) / len(persistentBarcode)
+    return round(entropia,4)
 
 def dibujaNubePuntosInstante(time,robotVision=None,vision_radius=5,field_of_view=np.pi/2,ids=False):
     instante = ps[time]
@@ -71,7 +72,7 @@ def dibujaNubePuntosInstante(time,robotVision=None,vision_radius=5,field_of_view
             arc_points.append([xrobot + vision_radius * np.cos(angulos), yrobot + vision_radius * np.sin(angulos)])
         arc_points.append([xrobot, yrobot])  
         arc_points = np.array(arc_points)
-        plt.plot(arc_points[:, 0], arc_points[:, 1], 'b-', alpha=0.3) 
+        # plt.plot(arc_points[:, 0], arc_points[:, 1], 'b-', alpha=0.3) 
         plt.fill(arc_points[:, 0], arc_points[:, 1], color='blue', alpha=0.1)
     plt.xlabel('X')
     plt.ylabel('Y')

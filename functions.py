@@ -42,6 +42,9 @@ def calculaEntropia(persistentBarcode):
     entropia=-np.sum(p*np.log(p))
     return round(entropia,4)
 
+def relative_entropy(persistentBarcode):
+    return calculaEntropia(persistentBarcode) / len(persistentBarcode)
+
 def dibujaNubePuntosInstante(time,robotVision=None,vision_radius=5,field_of_view=np.pi/2,ids=False):
     instante = ps[time]
     x=instante[:,0]

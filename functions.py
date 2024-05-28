@@ -2,16 +2,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 from gudhi import RipsComplex
 from gudhi import AlphaComplex
-# from gudhi.representations import Entropy
 from gudhi.representations import DiagramSelector
 import gudhi as gd
 import plotly.graph_objects as go
 from sklearn.metrics import pairwise_distances
 import math
+from scipy import sparse
+import ripser
 
 ps = np.load("Robots.npy")
 ds = [pairwise_distances(X).flatten() for X in ps[:,:,:2]]
 maxd = np.max(np.concatenate(ds))
+
+# topological descriptors calculation
 def calculaDiagramaPersistencia(puntos,dimension,complex="alpha"):
     if complex not in ["rips","alpha"]:
         raise ValueError("The selected complex must be rips or alpha")
@@ -45,6 +48,27 @@ def calculaEntropia(persistentBarcode):
 def relative_entropy(persistentBarcode):
     entropia=calculaEntropia(persistentBarcode) / len(persistentBarcode)
     return round(entropia,4)
+
+def calculate_lowerStair_PDs(t,x):
+    N = x.shape[0]
+    I = np.arange(N-1)
+    J = np.arange(1, N)
+    V = np.maximum(x[0:-1], x[1::])
+    # Add vertex birth times along the diagonal of the distance matrix
+    I = np.concatenate((I, np.arange(N)))
+    J = np.concatenate((J, np.arange(N)))
+    V = np.concatenate((V, x))
+    #Create the sparse distance matrix
+    D = sparse.coo_matrix((V, (I, J)), shape=(N, N)).tocsr()
+    dgms = ripser.ripser(D, maxdim=1, distance_matrix=True)['dgms']
+    return dgms
+
+def diagram_lowerstair_dimension(Diagramas,dimension):
+    dgm=Diagramas[dimension]
+    dgm = dgm[dgm[:, 1]-dgm[:, 0] > 1e-3, :]
+    return dgm
+
+# gráficos
 
 def dibujaNubePuntosInstante(time,robotVision=None,vision_radius=5,field_of_view=np.pi/2,ids=False):
     instante = ps[time]
@@ -142,7 +166,6 @@ def dibujaPersisteceBarcode(time):
     plt.title(f"Persistent barcode for time {time}; Entropy: {entropia}")
     
 
-
 def dibujaEntropyTimeSerie(entropy):
     plt.plot(entropy,marker='o')
     plt.xlabel('Time')
@@ -171,7 +194,8 @@ def dibujaEntropyTimeSerieInteractive(entropy):
     )
     fig.show()
 
-def calcula_robots_en_campo_vision(time, robot,vision_radius=5,field_of_view=np.pi/2,printing=False):
+#robots in field of vision
+def calculate_robots_in_field_vision(time, robot,vision_radius=5,field_of_view=np.pi/2,printing=False):
     robots_en_campo = []
     instante = ps[time]
     x=instante[:,0]
@@ -187,7 +211,7 @@ def calcula_robots_en_campo_vision(time, robot,vision_radius=5,field_of_view=np.
             continue
         
         robot_x, robot_y = x[i], y[i]
-        distancia = calcular_distancia(xObjetivo,yObjetivo,robot_x,robot_y)
+        distancia = calculate_distance(xObjetivo,yObjetivo,robot_x,robot_y)
         if distancia > vision_radius:
             continue
         
@@ -205,6 +229,22 @@ def calcula_robots_en_campo_vision(time, robot,vision_radius=5,field_of_view=np.
         print(f"Time {time}. Robots in the robot's {robot} field of vision:", robots_en_campo)
     return robots_en_campo
 
-def calcular_distancia(x1, y1, x2, y2):
+
+# distancias y angulos
+def calculate_distance(x1, y1, x2, y2):
     distancia = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
     return distancia
+
+def calculate_angle(x, y, orientation, x2, y2):
+    angle_to_point = np.arctan2(y2 - y, x2 - x)
+    relative_angle = angle_to_point - orientation
+    return relative_angle
+
+def transform_angle(angulo):
+    while angulo < 0:
+        angulo += 360
+    if angulo <= 180:
+        anguloFinal = angulo
+    else:
+        anguloFinal = 360 - angulo
+    return anguloFinal
